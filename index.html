@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
-<meta name="version" content="1.0">
+<meta name="version" content="1.1">
 <meta name="description" content="교실 자리 옮기기·캠핑장 걷기로 시차를 몸으로 느끼고, 시차 측정 판으로 거리와 시차의 관계를 재고, 지구 공전 모형과 6개월 간격 별 사진으로 연주 시차를 구해 별까지의 거리를 비교하는 중학교 과학 가상실험실">
 <meta property="og:title" content="송쌤과학 가상실험실 | 연주 시차와 별까지의 거리">
 <meta property="og:description" content="관측 위치가 바뀌면 가까운 물체만 먼 배경 위에서 옮겨 보여요. 시차를 재고, 연주 시차로 별까지의 거리를 비교해요">
@@ -503,6 +503,7 @@ dialog.drawer.sheet{--lift:0px}
   .ws-rev{font:700 9.5pt/1.3 var(--font-ui);margin:8px 0 0;color:var(--text-2)}
   .pv-key{break-before:page}
   .pv-key p{margin:0 0 6px}
+  .pv-key h3{font:800 10.5pt/1.3 var(--font-ui);margin:10px 0 4px}
   .pv-foot{margin-top:18px;padding-top:6px;border-top:1px solid var(--line-2);font-size:8pt;color:var(--text-2)}
 }
 </style>
@@ -548,7 +549,7 @@ dialog.drawer.sheet{--lift:0px}
 <script>
 /* ═════════════════ 공통: 도구 · 색 토큰 · 시차 과학 값 · 장면 바탕 ═════════════════ */
 'use strict';
-const APP_VERSION = '1.0', APP_DATE = '2026-09-26';
+const APP_VERSION = '1.1', APP_DATE = '2026-10-03';
 const LAB_NAME = '연주 시차와 별까지의 거리';
 const NS = 'http://www.w3.org/2000/svg';
 const $ = (s, r = document) => r.querySelector(s);
@@ -597,7 +598,6 @@ const PX = {
   AU_KM: 1.495978707e8,          // 1 AU (태양–지구 평균 거리)
   PC_AU: 206264.806,             // 1 pc = 연주 시차 1″인 별까지의 거리
   LY_PC: 3.26156,                // 1 pc ≈ 3.26 광년
-  EARTH_D_KM: 12742,             // 지구 지름
   LIMIT: 0.02,                   // 6개월 간격 사진에서 알아볼 수 있는 가장 작은 움직임(″) — 지상 관측 정밀도 약 0.01″ 기준의 교육용 값
   RAD_AS: 206264.806,            // 1 rad = 206265″
   deg: r => r * 180 / Math.PI,
@@ -1179,7 +1179,7 @@ class BoardLab extends Scene {
       <linearGradient id="${P}-sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${T('--star-sticker')}"/><stop offset="1" stop-color="${T('--star-sticker-lo')}"/></linearGradient></defs>
       <g id="${P}-strip"></g><g id="${P}-map"></g><g id="${P}-hd"></g>`;
     this.gStrip = this.svg.querySelector(`#${P}-strip`); this.gMap = this.svg.querySelector(`#${P}-map`);
-    this.hDa = this.handle('da', '별 모형 (다) — 화살표로 옮기기(위·아래 = 멀리·가까이)');
+    this.hDa = this.handle('da', `${this.o.daName || '별 모형 (다)'} — 화살표로 옮기기(위·아래 = 멀리·가까이)`);
     this.hDa.innerHTML = `<circle class="hitc" r="22" fill="transparent"/><circle class="focus-ring" r="18" fill="none"/>`;
     this.svg.querySelector(`#${P}-hd`).append(this.hDa);
   }
@@ -1270,7 +1270,7 @@ class BoardLab extends Scene {
     // 연필 표시(세운 면에 남는 자국)
     h += this.markTicks(true);
     // 별 모형들(멀리 있는 것부터)
-    const ms = this.shownModels().map(id => ({ id, ...this.model(id) })).sort((a, b) => b.y - a.y);
+    const ms = this.shownModels().map(id => ({ id, ...this.model(id) })).sort((a, b) => b.y - a.y), names = [];
     for (const m of ms) {
       const mag = BOARD.D / m.y, xa = hx + (m.x - hx) * mag, X = this.X(xa);
       const zs = z => ze + (z - ze) * mag;
@@ -1278,14 +1278,35 @@ class BoardLab extends Scene {
       h += `<rect${A({ x: X - sw / 2, y: this.Zs(zs(BOARD.standH)), width: sw, height: (zs(BOARD.standH) - zs(0)) * k, fill: T('--stand') })}/>`;
       const sel = m.id === this.s.sel;
       h += `<path d="${starPath(X, this.Zs(zs(BOARD.starZ)), BOARD.starR * mag * k)}" fill="url(#${P}-sk)" stroke="${T('--star-sticker-lo')}" stroke-width="1" ${sel ? '' : 'fill-opacity=".55"'}/>`;
-      h += label(X, this.Zs(zs(BOARD.starZ)) + 4.5, m.name, { fill: T('--paper-ink'), cls: 't12' });
+      // 작은 그림(간이 실험·이론 카드·인쇄)은 스티커 위 글자가 번호 눈금을 덮으므로, 이름을 띠 아래쪽(번호 눈금 밑)에 적는다
+      if (this.mini) names.push({ X, t: m.name });
+      else h += label(X, this.Zs(zs(BOARD.starZ)) + 4.5, m.name, { fill: T('--paper-ink'), cls: 't12' });
+    }
+    if (names.length) {
+      const yb = st.y + st.h - 3.5, tw = t => [...t].reduce((a, c) => a + (/[가-힣]/.test(c) ? 12 : 7), 0);
+      names.sort((a, b) => a.X - b.X).forEach((n, i, arr) => {
+        // 이웃 이름과 겹치면 둘을 서로 바깥쪽으로 붙인다(왼쪽 것은 오른쪽 끝, 오른쪽 것은 왼쪽 끝을 스티커 자리에)
+        const prev = arr[i - 1], next = arr[i + 1];
+        const close = o => o && Math.abs(o.X - n.X) < (tw(o.t) + tw(n.t)) / 2 + 4;
+        const anchor = close(next) ? 'end' : close(prev) ? 'start' : 'middle', x = anchor === 'end' ? n.X + 3 : anchor === 'start' ? n.X - 3 : n.X;
+        h += label(x, yb, n.t, { anchor, fill: T('--paper-ink'), halo: T('--paper-lo'), hw: 3, cls: 't12' });
+      });
     }
     // 구멍 테두리(어둡게 가장자리) + 이름표
     const col = e === 'L' ? '--a-glow' : '--b-glow';
     const tx = `${e === 'L' ? '왼쪽' : '오른쪽'} 구멍으로 본 모습${this.s.blink ? ' · 번갈아' : ''}`, cw = tx.length * 12.2 + 26, cy0 = st.y + (this.mini ? 4 : 6);
-    h += `<rect${A({ x: x0 + 6, y: cy0, width: cw, height: 22, rx: 11, fill: T('--stage-chip-bg'), 'fill-opacity': .85 })}/><circle${A({ cx: x0 + 18, cy: cy0 + 11, r: 5, fill: T(col) })}/>` + label(x0 + 28, cy0 + 15.5, tx, { anchor: 'start', fill: T('--on-stage-1'), cls: 't12' });
+    // 띠가 낮아(좁은 휴대폰) 이름표가 번호 눈금을 덮게 되면, 띠 왼쪽 바깥 여백에 세 줄로 적는다
+    // 띠 왼쪽 바깥에도 자리가 없으면(좁은 이론 카드) 번호 눈금 위쪽 하늘 자리에 한 줄로 짧게 적는다
+    const low = cy0 + 22 > this.Zs(30) - Math.max(7, 6.2 * k) - 1, tight = low && x0 >= 64, narrow = low && !tight && this.mini;
+    if (narrow) { const ty = this.Zs(46) - 3; h += `<circle${A({ cx: x0 + 11, cy: ty - 4, r: 4, fill: T(col) })}/>` + label(x0 + 19, ty, `${e === 'L' ? '왼쪽' : '오른쪽'} 구멍${this.s.blink ? ' · 번갈아' : ''}`, { anchor: 'start', fill: T('--text-1'), halo: T('--stage-2'), hw: 3, cls: 't12' }); }
+    else if (!tight) h += `<rect${A({ x: x0 + 6, y: cy0, width: cw, height: 22, rx: 11, fill: T('--stage-chip-bg'), 'fill-opacity': .85 })}/><circle${A({ cx: x0 + 18, cy: cy0 + 11, r: 5, fill: T(col) })}/>` + label(x0 + 28, cy0 + 15.5, tx, { anchor: 'start', fill: T('--on-stage-1'), cls: 't12' });
     if (this.flashT > 0) h += `<rect${A({ x: x0, y: st.y, width: w, height: st.h, fill: T(col), 'fill-opacity': .12 * this.flashT / .6 })}/>`;
     h += `</g>`;
+    if (tight) {
+      const rx = x0 - 5;
+      h += `<circle${A({ cx: rx - 5, cy: st.y + 6, r: 4.5, fill: T(col) })}/>` + label(rx - 13, st.y + 11, e === 'L' ? '왼쪽' : '오른쪽', { anchor: 'end', fill: T('--text-1'), cls: 't12' });
+      h += label(rx, st.y + 25, '구멍으로', { anchor: 'end', fill: T('--text-2'), cls: 't12' }) + label(rx, st.y + 39, this.s.blink ? '번갈아 봄' : '본 모습', { anchor: 'end', fill: T('--text-2'), cls: 't12' });
+    }
     return h;
   }
   markTicks(inStrip) {
@@ -1372,7 +1393,8 @@ class BoardLab extends Scene {
     const k = this.k, X = this.X(m.x), Y = this.Y(m.y);
     const aL = Math.atan2(this.Y(0) - Y, this.X(BOARD.holes.L) - X), aR = Math.atan2(this.Y(0) - Y, this.X(BOARD.holes.R) - X);
     const r = Math.max(16, 20 * k), am = midAngle(aL, aR);
-    return `<path d="${smallArc(X, Y, r, aL, aR)}" fill="none" stroke="${T('--px-ink')}" stroke-width="2.6"/>` + label(X + (r + 14) * Math.cos(am), Y + (r + 14) * Math.sin(am) + 4, `${this.reading()}°`, { fill: T('--px-ink'), halo: T('--paper'), hw: 3, cls: 't13 num' });
+    // 인쇄용 상황 그림(noVal)에는 결과 값 대신 ‘시차’만 적는다
+    return `<path d="${smallArc(X, Y, r, aL, aR)}" fill="none" stroke="${T('--px-ink')}" stroke-width="2.6"/>` + label(X + (r + 14) * Math.cos(am), Y + (r + 14) * Math.sin(am) + 4, this.o.noVal ? '시차' : `${this.reading()}°`, { fill: T('--px-ink'), halo: T('--paper'), hw: 3, cls: 't13 num' });
   }
   protractor(m) {
     const k = this.k, cx = this.X(m.x), cy = this.Y(m.y), R = Math.max(34, 34 * k);
@@ -1444,7 +1466,7 @@ class OrbitLab extends Scene {
     </defs><rect id="${P}-bg"/><g id="${P}-strip"></g><g id="${P}-map"></g><g id="${P}-hd"></g>`;
     this.gStrip = this.svg.querySelector(`#${P}-strip`); this.gMap = this.svg.querySelector(`#${P}-map`);
     this.hE = this.handle('earth', '지구 위치 — 왼쪽·오른쪽 화살표로 공전 궤도를 따라 옮기기');
-    this.hX = this.handle('star', '별 X까지 거리 — 위·아래 화살표로 바꾸기');
+    this.hX = this.handle('star', `별 ${this.nX}까지 거리 — 위·아래 화살표로 바꾸기`);
     [this.hE, this.hX].forEach(h => { h.innerHTML = `<circle class="hitc" r="20" fill="transparent"/><circle class="focus-ring" r="16" fill="none"/>`; });
     this.svg.querySelector(`#${P}-hd`).append(this.hE, this.hX);
     const R = rng(31); this.bgStars = [];
@@ -1530,7 +1552,7 @@ class OrbitLab extends Scene {
     this.hE.setAttribute('transform', `translate(${f1(this.sx(E[0]))} ${f1(this.sy(E[1]))})`);
     this.hE.setAttribute('aria-valuetext', `지구 ${this.monthName()} 위치`);
     this.hX.setAttribute('transform', `translate(${f1(this.sx(X[0]))} ${f1(this.sy(X[1]))})`);
-    this.hX.setAttribute('aria-valuetext', `별 X까지 태양–지구 거리의 ${f1(this.s.dX)}배`);
+    this.hX.setAttribute('aria-valuetext', `별 ${this.nX}까지 태양–지구 거리의 ${f1(this.s.dX)}배`);
   }
   sub(t, n) { return `${t}<tspan dy="3" font-size="10">${n}</tspan>`; }
   drawStrip() {
@@ -1543,11 +1565,24 @@ class OrbitLab extends Scene {
       h += `<circle${A({ cx: X, cy: y0 + 10 + b.v * (h0 - 20), r: .6 + b.b * 1.1, fill: T('--bgstar'), 'fill-opacity': .35 + b.b * .5 })}/>`;
     }
     const yX = y0 + h0 * .42, yY = y0 + h0 * .7;
+    const dots = vis ? [[this.starX(), yX]].concat(this.s.showY ? [[this.starY(), yY]] : []).map(([p, yy]) => [p, this.cx + this.appX(this.E(), p) * this.k0, yy]) : [];
+    const trail = star => { const xs = []; for (let i = 0; i <= 48; i++) xs.push(this.appX(this.earthAt(i / 4), star)); return [Math.min(...xs), Math.max(...xs)]; };
+    // 이름표 칩은 별보다 먼저(아래 층에) 그린다 — 좁은 화면에서도 별 점이 칩에 가려지지 않게.
+    // 작은 그림에서 별이 1년 동안 오가는 자리가 칩 글자에 걸리면 칩을 두 줄(‘지구에서 / 본 하늘’)로 줄인다
+    const tx = '지구에서 본 하늘', cw = tx.length * 12.4 + 20, cw2 = 4 * 12.4 + 16;
+    const busy = vis ? dots.map(([p, , yy]) => { const [lo, hi] = trail(p); return [this.cx + lo * this.k0 - 11, yy - 11, this.cx + hi * this.k0 + 11, yy + 11]; }) : [];
+    const meets = b => busy.some(r => r[0] < b[2] && r[2] > b[0] && r[1] < b[3] && r[3] > b[1]);
+    const two = this.mini && meets([st.x + 8, y0 + 8, st.x + 8 + cw, y0 + 32]);
+    const chip = two ? [st.x + 8, y0 + 6, st.x + 8 + cw2, y0 + 40] : [st.x + 8, y0 + 8, st.x + 8 + cw, y0 + 32];
+    h += `<rect${A({ x: chip[0], y: chip[1], width: chip[2] - chip[0], height: chip[3] - chip[1], rx: two ? 10 : 12, fill: T('--stage-chip-bg'), 'fill-opacity': .82 })}/>`;
+    h += two ? label(st.x + 16, y0 + 20, '지구에서', { anchor: 'start', fill: T('--on-stage-2'), cls: 't12' }) + label(st.x + 16, y0 + 35, '본 하늘', { anchor: 'start', fill: T('--on-stage-2'), cls: 't12' })
+      : label(st.x + 17, y0 + 25, tx, { anchor: 'start', fill: T('--on-stage-2'), cls: 't12' });
+    // 띠가 낮은 작은 그림은 별 이름을 점 옆(같은 높이)에 적는다 — 점 아래에 적으면 띠 밖으로 잘리거나 다른 별 점 밑에 놓인다
+    const side = this.mini && h0 * .3 < 20;
     const one = (star, yy, glow, nm, col) => {
       let s2 = '';
       // 1년 동안 오가는 범위(자취)
-      const xs = []; for (let i = 0; i <= 48; i++) xs.push(this.appX(this.earthAt(i / 4), star));
-      const lo = Math.min(...xs), hi = Math.max(...xs);
+      const [lo, hi] = trail(star);
       s2 += `<line${A({ x1: this.cx + lo * this.k0, x2: this.cx + hi * this.k0, y1: yy, y2: yy, stroke: T('--on-stage-2'), 'stroke-opacity': .45, 'stroke-width': 2, 'stroke-dasharray': '1 5', 'stroke-linecap': 'round' })}/>`;
       // 관측한 자리 X1 · X2
       [['A', '--a-glow', 1], ['B', '--b-glow', 2]].forEach(([w, c, n]) => {
@@ -1557,7 +1592,12 @@ class OrbitLab extends Scene {
       });
       const xn = this.cx + this.appX(this.E(), star) * this.k0;
       s2 += `<circle${A({ cx: xn, cy: yy, r: 11, fill: `url(#${P}-${glow})` })}/><circle${A({ cx: xn, cy: yy, r: 3.2, fill: T('--star-1') })}/>`;
-      s2 += label(xn + 12, yy + 17, `별 ${nm}`, { anchor: 'start', fill: T('--on-stage-1'), cls: 't12' });
+      // 이름표가 다른 별 점(또는 칩)을 덮으면 반대쪽으로 뒤집는다
+      const lw = 28;
+      const hit = side ? x1 => dots.some(([p, ox, oy]) => p !== star && ox > x1 - 6 && ox < x1 + lw + 6 && Math.abs(oy - yy) < 18) || (chip[0] < x1 + lw && chip[2] > x1 && chip[1] < yy + 8 && chip[3] > yy - 8)
+        : x1 => dots.some(([p, ox, oy]) => p !== star && ox > x1 - 4 && ox < x1 + lw + 4 && oy > yy + 1 && oy < yy + 24);
+      const gap = side ? 13 : 12, right = !hit(xn + gap) || hit(xn - gap - lw);
+      s2 += label(right ? xn + gap : xn - gap, side ? yy + 4.5 : yy + 17, `별 ${nm}`, { anchor: right ? 'start' : 'end', fill: T('--on-stage-1'), cls: 't12' });
       return s2;
     };
     if (vis) {
@@ -1568,8 +1608,6 @@ class OrbitLab extends Scene {
       h += `<circle${A({ cx: xn, cy: yX, r: 11, fill: `url(#${P}-glow)` })}/><circle${A({ cx: xn, cy: yX, r: 3.2, fill: T('--star-1') })}/>`;
       h += label(xn, yX + 30, this.z > .98 ? `실제로는 1월과 7월 사이에 ${fmtAngle(this.parX())}만큼만 옮겨 보여요 — 이 그림으로는 보이지 않을 만큼 작아요` : '별까지의 거리를 실제 비율로 늘리는 중…', { fill: T('--on-stage-1'), cls: 't13' });
     }
-    const tx = '지구에서 본 하늘', cw = tx.length * 12.4 + 20;
-    h += `<rect${A({ x: st.x + 8, y: y0 + 8, width: cw, height: 24, rx: 12, fill: T('--stage-chip-bg'), 'fill-opacity': .82 })}/>` + label(st.x + 17, y0 + 25, tx, { anchor: 'start', fill: T('--on-stage-2'), cls: 't12' });
     return h + `</g>`;
   }
   drawMap() {
@@ -1581,13 +1619,19 @@ class OrbitLab extends Scene {
     // 태양 · 궤도
     const Sx = sx(0), Sy = sy(0), R = Math.max(.8, k);
     h += `<circle${A({ cx: Sx, cy: Sy, r: Math.max(10, .3 * k) * 1.9, fill: `url(#${P}-sun)` })}/><circle${A({ cx: Sx, cy: Sy, r: Math.max(5, .14 * k), fill: T('--sun-1') })}/>`;
-    if (!mini || R > 10) h += label(Sx, Sy + Math.max(26, .3 * k * 1.9) + 4, '태양', { fill: T('--on-stage-2'), cls: 't12' });
+    const sunL = Sy + Math.max(26, .3 * k * 1.9) + 4;                 // 작은 그림에서 그림 아래 끝을 넘으면 적지 않는다
+    if ((!mini || R > 10) && (!mini || sunL + 1 <= this.H)) h += label(Sx, sunL, '태양', { fill: T('--on-stage-2'), cls: 't12' });
     h += `<circle${A({ cx: Sx, cy: Sy, r: R, fill: 'none', stroke: T('--orbit'), 'stroke-opacity': .7, 'stroke-width': 1.2, 'stroke-dasharray': '3 4' })}/>`;
     if (R > 30) {
       for (let i = 0; i < 12; i++) { const a = 2 * Math.PI * i / 12, c = Math.cos(a), sn = -Math.sin(a); h += `<line${A({ x1: Sx + c * (R - 4), y1: Sy + sn * (R - 4), x2: Sx + c * (R + 4), y2: Sy + sn * (R + 4), stroke: T('--orbit'), 'stroke-opacity': .6 })}/>`; }
       if (!mini) [[3, '4월', -17], [9, '10월', 18]].forEach(([i, t, o]) => { const a = 2 * Math.PI * i / 12; h += label(Sx + Math.cos(a) * (R + o), Sy - Math.sin(a) * (R + o) + 4, t, { fill: T('--on-stage-2'), cls: 't12' }); });
       // A · B 자리
-      [[0, mini ? 'A' : 'A · 1월', '--a-glow'], [6, mini ? 'B' : 'B · 7월', '--b-glow']].forEach(([m, t, c]) => { const e = this.earthAt(m), X = sx(e[0]) + (m ? -1 : 1) * (mini ? 14 : 16), Y = sy(e[1]) + (mini ? 18 : 26); h += label(X, Y, t, { anchor: m ? 'end' : 'start', fill: T(c), halo: T('--space-1'), cls: mini ? 't13' : 't15' }); });
+      const nmd = this.o.names;                          // 간이 실험(별 이름 A·B)에서는 관측 위치를 버튼과 같은 (가)·(나)로
+      [[0, mini ? (nmd ? '(가) 1월' : 'A') : 'A · 1월', '--a-glow'], [6, mini ? (nmd ? '(나) 7월' : 'B') : 'B · 7월', '--b-glow']].forEach(([m, t, c]) => { const e = this.earthAt(m), X = sx(e[0]) + (m ? -1 : 1) * (mini ? 14 : 16), Y = sy(e[1]) + (mini ? 18 : 26); h += label(X, Y, t, { anchor: m ? 'end' : 'start', fill: T(c), halo: T('--space-1'), cls: mini ? 't13' : 't15' }); });
+    } else if (mini && R > 10) {
+      // 궤도가 작은 그림(이론 카드 · 화면의 간이 실험)은 월 눈금 없이 관측 자리만 궤도 바깥 옆(같은 높이)에 적는다
+      const nmd = this.o.names;
+      [[0, nmd ? '(가) 1월' : 'A', '--a-glow'], [6, nmd ? '(나) 7월' : 'B', '--b-glow']].forEach(([m, t, c]) => { const e = this.earthAt(m); h += label(sx(e[0]) + (m ? -1 : 1) * 10, sy(e[1]) + 4.5, t, { anchor: m ? 'end' : 'start', fill: T(c), halo: T('--space-1'), cls: 't13' }); });
     }
     // 시선
     const Xs = this.starX(), Ys = this.starY(), E = this.E();
@@ -1629,7 +1673,9 @@ class OrbitLab extends Scene {
     // 지구
     const ex = sx(E[0]), ey = sy(E[1]), er = this.z < .02 ? (mini ? 6 : 8) : 5;
     h += `<circle${A({ cx: ex, cy: ey, r: er, fill: `url(#${P}-earth)` })}/><path d="M${f1(ex - er * .5)} ${f1(ey - er * .2)} q${f1(er * .4)} ${f1(-er * .5)} ${f1(er * .8)} ${f1(-er * .1)} q${f1(-er * .1)} ${f1(er * .5)} ${f1(-er * .5)} ${f1(er * .5)}z" fill="${T('--earth-land')}"/>`;
-    if (!mini && this.z < .02) h += label(ex, ey - 13, '지구', { fill: T('--on-stage-1'), halo: T('--space-1'), cls: 't12' });
+    if ((!mini || this.o.names) && this.z < .02) h += label(ex, ey - 13, '지구', { fill: T('--on-stage-1'), halo: T('--space-1'), cls: 't12' });
+    // 작은 그림(간이 실험·이론 카드·인쇄)에도 확대 모형임을 밝힌다
+    if (mini && this.z < .02) h += label(8, this.H - 22, '확대 모형', { anchor: 'start', fill: T('--on-stage-2'), halo: T('--space-1'), cls: 't12' }) + label(8, this.H - 8, '(거리 비율 다름)', { anchor: 'start', fill: T('--on-stage-2'), halo: T('--space-1'), cls: 't12' });
     // 축척 막대(실제 비율 보기)
     if (this.z > 0 && !mini) {
       const want = 100 / k, p10 = Math.pow(10, Math.floor(Math.log10(want))), unit = [1, 2, 5, 10].map(u => u * p10).find(u => u >= want) || p10 * 10;
@@ -1733,6 +1779,13 @@ class SkyLab extends Scene {
       const r = Math.max(1.1, (.5 + b * 1.4) * (k / 290));
       h += `<circle${A({ cx: this.X(x), cy: this.Y(y), r: r * 2.6, fill: `url(#${P}-bg)`, 'fill-opacity': .35 + b * .4 })}/><circle${A({ cx: this.X(x), cy: this.Y(y), r, fill: T('--bgstar'), 'fill-opacity': .55 + b * .4 })}/>`;
     }
+    // 오른쪽 위 글자(눈금 값 · 별 이름) 자리: 가장 넓은 이름표(겹쳐 보기)와 한 줄에 들어가지 않으면
+    // 실험대는 둘째 줄로, 작은 그림(간이 실험·이론 카드·인쇄)은 오른쪽 아래(축 글자가 없는 자리)로 옮긴다
+    const gaia = this.s.mode === 'gaia', cwO = '두 사진 겹쳐 보기'.length * 13 + 20 + 110, rowY = ph.x + 10 + cwO + 8 <= ph.x + ph.w - 12 - 84 ? 27 : mini ? ph.h - 8 : 54;
+    const nameTx = !gaia && !mini ? (st => `${st.name} · ${st.con}`)(STAR_BY[this.s.star]) : '';
+    const boxes = [[ph.x + 10, ph.y + 10, ph.x + 10 + cwO, ph.y + 38], [ph.x + ph.w - 12 - 84, ph.y + rowY - 12, ph.x + ph.w - 12, ph.y + rowY + 3]];
+    if (nameTx) boxes.push([ph.x + ph.w - 12 - nameTx.length * 13, ph.y + rowY + 7, ph.x + ph.w - 12, ph.y + rowY + 23]);
+    const tw = (t, fs) => [...t].reduce((a, c) => a + (/[가-힣]/.test(c) ? fs : c === ' ' ? fs * .3 : fs * .6), 0);
     // 가까운 별
     const show = this.shownPhoto(), ts = this.targets();
     for (const t of ts) {
@@ -1740,9 +1793,12 @@ class SkyLab extends Scene {
       if (show === 'overlay') {
         h += this.starBlob(xj, Y, t.mag, t.col, '--a-glow') + this.starBlob(xl, Y, t.mag, t.col, '--b-glow');
         if (this.s.meas[t.id] || this.o.alwaysBracket) {
-          const v = this.measured(t), by = Y - Math.max(26, SKY.blur * k * 4 + 16);
-          h += `<path d="M${f1(xj)} ${f1(by + 7)} V${f1(by)} H${f1(xl)} V${f1(by + 7)}" fill="none" stroke="${T('--px-glow')}" stroke-width="2"/>`;
-          h += label((xj + xl) / 2, by - 7, v == null ? '너무 작아 재기 어려워요' : `${fx(v, 2)}″`, { fill: T('--px-glow'), halo: T('--space-0'), cls: mini ? 't12' : 't15 num' });
+          // 괄호·값이 위쪽 글자(사진 이름표 · 눈금 값 · 별 이름)와 실제로 겹칠 때만 별 아래로 뒤집는다
+          const v = this.measured(t), off = Math.max(26, SKY.blur * k * 4 + 16), vt = v == null ? '너무 작아 재기 어려워요' : `${fx(v, 2)}″`, fs = mini ? 12 : 15, mx = (xj + xl) / 2, lw = tw(vt, fs);
+          const bx = [Math.min(xj, mx - lw / 2) - 2, Y - off - 7 - fs, Math.max(xl, mx + lw / 2) + 2, Y - off + 7];
+          const up = Y - off - 7 - fs > ph.y + 2 && !boxes.some(b => bx[0] < b[2] && bx[2] > b[0] && bx[1] < b[3] && bx[3] > b[1]), by = up ? Y - off : Y + off, d = up ? 7 : -7;
+          h += `<path d="M${f1(xj)} ${f1(by + d)} V${f1(by)} H${f1(xl)} V${f1(by + d)}" fill="none" stroke="${T('--px-glow')}" stroke-width="2"/>`;
+          h += label(mx, up ? by - 7 : by + 18, vt, { fill: T('--px-glow'), halo: T('--space-0'), cls: mini ? 't12' : 't15 num' });
         }
       } else h += this.starBlob(show === 'jan' ? xj : xl, Y, t.mag, t.col);
       const lx = (show === 'overlay' ? Math.max(xj, xl) : show === 'jan' ? xj : xl) + Math.max(14, SKY.blur * k * 3.4);
@@ -1750,7 +1806,6 @@ class SkyLab extends Scene {
     }
     if (this.flash > 0) h += `<rect${A({ x: ph.x, y: ph.y, width: ph.w, height: ph.h, fill: T('--on-stage-1'), 'fill-opacity': this.flash * .25 })}/>`;
     // 사진 이름표
-    const gaia = this.s.mode === 'gaia';
     const tx = show === 'overlay' ? '두 사진 겹쳐 보기' : show === 'jan' ? `${gaia ? '(가) ' : ''}1월에 찍은 사진` : `${gaia ? '(나) ' : ''}7월에 찍은 사진`;
     const dot = show === 'jan' ? '--a-glow' : show === 'jul' ? '--b-glow' : null;
     const cw = tx.length * 13 + (dot ? 30 : 20) + (show === 'overlay' ? 110 : 0);
@@ -1762,8 +1817,8 @@ class SkyLab extends Scene {
       h += `<circle${A({ cx: x2 + 6, cy: ph.y + 24, r: 6, fill: 'none', stroke: T('--a-glow'), 'stroke-width': 2 })}/>` + label(x2 + 16, ph.y + 29, '1월', { anchor: 'start', fill: T('--on-stage-1'), cls: 't12' });
       h += `<circle${A({ cx: x2 + 54, cy: ph.y + 24, r: 6, fill: 'none', stroke: T('--b-glow'), 'stroke-width': 2 })}/>` + label(x2 + 64, ph.y + 29, '7월', { anchor: 'start', fill: T('--on-stage-1'), cls: 't12' });
     }
-    if (!mini) h += label(ph.x + ph.w - 12, ph.y + 27, '눈금 한 칸 = 0.1″', { anchor: 'end', fill: T('--on-stage-2'), cls: 't12' });
-    if (!gaia && !mini) { const st = STAR_BY[this.s.star]; h += label(ph.x + ph.w - 12, ph.y + 47, `${st.name} · ${st.con}`, { anchor: 'end', fill: T('--on-stage-1'), cls: 't13' }); }
+    h += label(ph.x + ph.w - 12, ph.y + rowY, '눈금 한 칸 = 0.1″', { anchor: 'end', fill: T('--on-stage-2'), cls: 't12' });   // 간이 실험·인쇄 그림에도 눈금 값을 적는다
+    if (nameTx) h += label(ph.x + ph.w - 12, ph.y + rowY + 20, nameTx, { anchor: 'end', fill: T('--on-stage-1'), cls: 't13' });
     return h + `</g>`;
   }
   /* 관측 위치(작은 공전 그림, 비율은 실제와 다름) */
@@ -1779,6 +1834,7 @@ class SkyLab extends Scene {
       h += `<circle${A({ cx: ex, cy, r: on ? 6 : 4, fill: T(c), 'fill-opacity': on ? 1 : .35 })}/>` + label(ex + dx * 2, cy + 18, t, { fill: T(c), cls: 't12' });
     });
     if (!this.mini && s > 100) h += label(x0 + s / 2, y0 + s + 16, '관측 위치(비율 다름)', { fill: T('--on-stage-2'), cls: 't12' });
+    else if (this.mini) h += label(x0, y0 + s + 16, '관측 위치(비율 다름)', { anchor: 'start', fill: T('--on-stage-2'), halo: T('--space-0'), cls: 't12' });
     return h;
   }
   observe() {
@@ -1797,85 +1853,42 @@ class SkyLab extends Scene {
   }
 }
 
-/* ═════════════════ 탐구 질문 · 간이 실험 · 이론 카드 ═════════════════
-   간이 실험은 실험대와 같은 클래스(BoardLab · OrbitLab · SkyLab)를 mini로 새로 만들어 쓴다 — 계산은 하나(PX), 상태는 따로. */
+/* ═════════════════ 탐구 질문(3문항) · 간이 실험 · 이론 카드 ═════════════════
+   간이 실험은 실험대와 같은 클래스(BoardLab · OrbitLab · SkyLab)를 mini로 새로 만들어 쓴다 — 계산은 하나(PX), 상태는 따로.
+   문항 id(q1~q3)는 답안·잠금·힌트 저장 키이므로 바꾸지 않는다. */
 const QUESTIONS = [
   {
     id: 'q1', title: '물체까지의 거리와 시차', mini: 'boardDist',
     src: '교과서 탐구: 물체까지의 거리와 시차의 관계 알아보기(정리하기) · 해 보기: 시차 측정하기',
     q: '시차 측정 판에서 별 모형이 구멍(관측 지점)에서 멀어지면, 두 구멍으로 번갈아 볼 때 별 모형이 보이는 위치와 시차는 어떻게 달라질까? 관측 지점부터 별 모형까지의 거리와 시차 사이의 관계를 설명해 보자.',
-    hint: '간이 실험의 ‘별 모형까지 거리’ 손잡이를 40 mm 쪽에서 170 mm 쪽으로 옮겨 보세요. ‘번갈아’를 눌러 두 구멍으로 본 위치가 얼마나 떨어져 있는지, 분홍 호 옆의 각도가 어떻게 바뀌는지 보세요.',
-    model: '별 모형이 관측 지점에서 멀어질수록 두 구멍으로 본 별 모형의 위치 차이가 줄어들어 <mark>시차가 작아진다</mark>. 즉 <mark>관측 지점과 물체 사이의 거리가 가까울수록 시차가 크고, 멀수록 시차가 작다</mark>. 그래서 시차를 재면 물체까지의 거리를 비교할 수 있다.',
+    hint: '별 모형을 두 구멍 사이 앞(‘처음으로’를 누른 자리)에 둔 채 간이 실험의 ‘별 모형까지 거리’ 손잡이를 40 mm 쪽에서 170 mm 쪽으로 옮겨 보세요. ‘번갈아’를 눌러 두 구멍으로 본 위치가 얼마나 떨어져 있는지, 분홍 호 옆의 각도가 어떻게 바뀌는지 보세요.',
+    model: '별 모형이 구멍에서 멀어질수록 두 구멍으로 번갈아 볼 때 <mark>별 모형이 보이는 위치의 차이가 줄어들고</mark>, <mark>시차도 작아진다</mark>. 간이 실험에서 두 구멍 사이 앞에 둔 별 모형까지의 거리를 40 mm에서 170 mm로 늘리면 시차가 90°에서 26°로 줄어든다. 즉 <mark>관측 지점과 물체 사이의 거리가 가까울수록 시차가 크고, 멀수록 시차가 작다</mark>.',
   },
   {
     id: 'q2', title: '별의 위치가 달라진 까닭', mini: 'orbitAB',
     src: '교과서 해 보기: 연주 시차로 별까지의 거리 비교하기 ① · 스스로 평가',
     q: '가이아 우주 망원경은 지구와 함께 태양 주위를 돌며 6개월 간격으로 별을 관측한다. 두 사진에서 먼 별들의 위치는 그대로인데 별 A와 별 B의 위치만 달라진 까닭을 설명해 보자. 또, 지구가 공전하지 않는다면 별의 연주 시차는 어떻게 될까?',
-    hint: '간이 실험에서 ‘(가) 1월 위치’와 ‘(나) 7월 위치’를 번갈아 눌러 보세요. 아래 그림에서 지구(가이아)가 어디에 있는지, 위 띠에서 별 A·B와 먼 별들이 어떻게 보이는지 함께 보세요.',
-    model: '지구(가이아)가 태양 주위를 <mark>공전하여 6개월 사이에 관측하는 위치가 바뀌었기</mark> 때문이다. 관측 위치가 바뀌면 가까이 있는 별 A와 B는 보이는 방향이 달라져 먼 별들을 배경으로 옮겨 보이지만, 아주 먼 별들은 방향이 거의 변하지 않는다. 지구가 공전하지 않는다면 관측 위치가 바뀌지 않아 별이 보이는 방향도 변하지 않으므로 <mark>연주 시차가 나타나지 않는다(0이 된다)</mark>.',
+    hint: '간이 실험에서 ‘(가) 1월 위치’와 ‘(나) 7월 위치’를 번갈아 눌러, 아래 그림의 지구 자리와 위쪽 ‘지구에서 본 하늘’ 띠의 별 A·B, 먼 별들이 어떻게 보이는지 견주어 보세요. 지구가 한 자리에 머물러 있을 때 띠의 별 A·B가 옮겨 보이는지도 확인해 보세요.',
+    model: '지구와 함께 태양 주위를 도는 가이아의 <mark>관측 위치가 6개월 사이에 공전 궤도의 반대편으로 바뀌면서</mark>, 비교적 가까이 있는 별 A와 B만 <mark>보이는 방향이 달라졌기</mark> 때문이다. 아주 먼 별들은 방향이 거의 변하지 않아 그대로 보인다. 지구가 공전하지 않는다면 관측 위치가 바뀌지 않으므로 <mark>연주 시차가 생기지 않는다(0이다)</mark>.',
   },
   {
     id: 'q3', title: '더 멀리 있는 별 고르기', mini: 'gaiaMeasure',
     src: '교과서 해 보기: 연주 시차로 별까지의 거리 비교하기 ② · 스스로 확인하기',
     q: '가이아 우주 망원경이 6개월 간격으로 찍은 두 사진을 겹쳐 두 별 A와 B의 연주 시차를 비교하고, 지구에서 더 멀리 떨어져 있는 별을 골라 그렇게 생각한 까닭을 설명해 보자.',
-    hint: '간이 실험에서 ‘겹쳐 보기’를 누르고 분홍 괄호 위의 값(1월에서 7월 사이에 옮겨 간 각)을 별 A와 별 B끼리 비교해 보세요. 연주 시차는 그 값의 절반이에요.',
-    model: '<mark>별 A가 더 멀리 있다</mark>. 6개월 사이에 별 A는 0.24″, 별 B는 0.60″ 옮겨 가서 연주 시차가 별 A는 0.12″, 별 B는 0.30″이다. <mark>별까지의 거리가 멀수록 연주 시차가 작으므로</mark> 연주 시차가 더 작은 별 A가 지구에서 더 멀리 떨어져 있다.',
-  },
-  {
-    id: 'q4', title: '지구 양 끝과 공전 궤도 양 끝', mini: 'baseline',
-    src: '교과서 스스로 확인하기(사고력)',
-    q: '지구 표면에서 가장 멀리 떨어진 두 지점에서 별의 시차를 측정하는 것은 지구 공전 궤도에서 가장 멀리 떨어진 두 지점에서 측정하는 것보다 더 어렵다. 그 까닭을 설명해 보자.',
-    hint: '간이 실험에서 ‘지구의 양 끝’과 ‘공전 궤도의 양 끝’을 바꿔 가며 두 관측 지점 사이의 거리와 결과 문장의 시차 값을 비교해 보세요.',
-    model: '지구 표면의 두 지점 사이 거리(지구 지름, 약 1만 3천 km)는 공전 궤도의 두 지점 사이 거리(약 3억 km)보다 훨씬 짧아서 <mark>시차가 아주 작게 나타나기</mark> 때문이다. 시차는 <mark>두 관측 지점 사이의 거리가 멀수록 크게</mark> 나타난다. 가장 가까운 별도 지구 양 끝에서 재면 시차가 약 0.00007″밖에 되지 않아 측정하기 어렵다.',
-  },
-  {
-    id: 'q5', title: '°(도) 대신 ″(초)를 쓰는 까닭', mini: 'units',
-    src: '교과서 ‘다음 질문의 답을 친구에게 설명해 보자’ · 초(″)',
-    q: '연주 시차의 단위로 °(도) 대신 ″(초)를 사용하는 까닭을 설명해 보자.',
-    hint: '간이 실험에서 ‘1° 돋보기’, ‘1′ 돋보기’, ‘1″ 돋보기’를 차례로 눌러 보세요. 별을 바꾸며 분홍색 연주 시차 부채꼴이 어느 돋보기에서 보이기 시작하는지, 결과 문장의 ° 값을 보세요.',
-    model: '<mark>별의 연주 시차는 매우 작기</mark> 때문이다. 태양을 제외하고 가장 가까운 별도 연주 시차가 약 0.77″로 1°의 약 4700분의 1밖에 되지 않는다. °로 나타내면 0.0002°처럼 알아보기 어려운 작은 수가 되므로 <mark>1°를 3600으로 나눈 작은 단위인 ″(초)</mark>를 쓴다. (1° = 60′ = 3600″)',
+    hint: '간이 실험에서 ‘겹쳐 보기’를 누르고 분홍 괄호에 적힌 값(1월에서 7월 사이에 옮겨 간 각)을 별 A와 별 B끼리 비교해 보세요. 연주 시차를 구하는 방법은 바로 뒤의 ‘이론: 연주 시차’ 단추를 눌러 확인해 보세요.',
+    theory: 'annual',                                  // 힌트 끝에 이론 카드 바로 열기 단추를 붙인다
+    model: '별 A의 연주 시차(0.12″)가 별 B(0.30″)보다 작으므로 <mark>별 A가 지구에서 더 멀리 있다</mark>. 두 사진을 겹쳐 보면 1월에서 7월 사이에 별 A는 0.24″, 별 B는 0.60″ 옮겨 갔고, 연주 시차는 그 절반이다. <mark>별까지의 거리가 멀수록 연주 시차가 작기</mark> 때문이다.',
   },
 ];
 const MIN_CHARS = 20;
 const MINI_META = {
-  boardDist: ['별 모형까지의 거리와 시차', '거리 손잡이를 옮기고 두 구멍으로 번갈아 보세요 · 별 모형은 끌어도 돼요'],
-  orbitAB: ['6개월 사이 지구의 위치', '(가) 1월 · (나) 7월 위치를 바꾸거나 공전시켜 보세요 · 지구는 끌어도 돼요'],
-  gaiaMeasure: ['가이아가 찍은 두 사진', '1월·7월 사진을 번갈아 보거나 겹쳐 보세요'],
-  baseline: ['두 관측 지점 사이의 거리', '관측 지점을 바꿔 가장 가까운 별의 시차를 비교해 보세요'],
-  units: ['각도 돋보기 — 1°, 1′, 1″', '돋보기와 별을 바꿔 연주 시차의 크기를 보세요'],
+  boardDist: ['별 모형까지의 거리와 시차', '거리 손잡이를 옮기고 두 구멍으로 번갈아 보세요 · 별 모형은 끌어도 돼요(거리 손잡이는 그 방향 그대로 거리만 바꿔요)'],
+  orbitAB: ['6개월 사이 지구의 위치', '(가) 1월 · (나) 7월 위치를 바꾸거나 공전시켜 보세요 · 지구는 끌어도 돼요 · 확대 모형(거리 비율은 실제와 달라요) · 별 A·B는 교과서 활동을 위한 가상의 별이에요'],
+  gaiaMeasure: ['가이아가 찍은 두 사진', '1월·7월 사진을 번갈아 보거나 겹쳐 보세요 · 별 A·B는 교과서 활동을 위한 가상의 별이에요'],
 };
-const MINI_SPACE = { orbitAB: true, gaiaMeasure: true, baseline: true, units: true };
+const MINI_SPACE = { orbitAB: true, gaiaMeasure: true };
 
-/* ── 간이 실험 전용 작은 장면 두 가지(계산은 PX · STARS 그대로) ── */
-class BaselineLab extends Scene {
-  constructor(host, o = {}) {
-    super(host, o); this.s = Object.assign({ base: 'orbit' }, o.state || {});
-    this.svg.setAttribute('aria-label', '두 관측 지점에서 가장 가까운 별을 바라본 그림');
-    this.svg.innerHTML = `<defs><radialGradient id="${this.P}-g"><stop offset="0" stop-color="${T('--star-1')}"/><stop offset=".35" stop-color="${T('--star-red')}" stop-opacity=".6"/><stop offset="1" stop-color="${T('--star-red')}" stop-opacity="0"/></radialGradient><radialGradient id="${this.P}-sun"><stop offset="0" stop-color="${T('--sun-1')}"/><stop offset="1" stop-color="${T('--sun-3')}" stop-opacity="0"/></radialGradient><radialGradient id="${this.P}-e" cx=".35" cy=".35"><stop offset="0" stop-color="${T('--earth-1')}"/><stop offset="1" stop-color="${T('--earth-2')}"/></radialGradient></defs><g></g>`;
-    this.g = this.svg.lastChild;
-  }
-  refreshDefs() { }
-  baseKm() { return this.s.base === 'orbit' ? 2 * PX.AU_KM : PX.EARTH_D_KM; }
-  arcsec() { return PX.parallaxArcsec(this.baseKm(), STAR_BY.prox.pc); }
-  draw() {
-    const W = this.W, H = this.H, cx = W / 2, sy = 30, by = H - 50, P = this.P, orb = this.s.base === 'orbit';
-    let h = `<rect width="${W}" height="${H}" fill="${T('--space-1')}"/>`;
-    const r = orb ? Math.min(W * .3, 150) : Math.min(34, H * .14);
-    const pA = orb ? [cx + r, by] : [cx + r * .98, by], pB = orb ? [cx - r, by] : [cx - r * .98, by];
-    if (orb) h += `<ellipse${A({ cx, cy: by, rx: r, ry: r * .18, fill: 'none', stroke: T('--orbit'), 'stroke-dasharray': '3 4' })}/><circle${A({ cx, cy: by, r: 14, fill: `url(#${P}-sun)` })}/>`;
-    else h += `<circle${A({ cx, cy: by, r, fill: `url(#${P}-e)` })}/><path d="M${f1(cx - r * .5)} ${f1(by - r * .2)} q${f1(r * .4)} ${f1(-r * .5)} ${f1(r * .8)} ${f1(-r * .1)} q${f1(-r * .1)} ${f1(r * .5)} ${f1(-r * .5)} ${f1(r * .5)}z" fill="${T('--earth-land')}"/>`;
-    h += `<line${A({ x1: pA[0], y1: pA[1], x2: cx, y2: sy, stroke: T('--a-glow'), 'stroke-width': 2 })}/><line${A({ x1: pB[0], y1: pB[1], x2: cx, y2: sy, stroke: T('--b-glow'), 'stroke-width': 2 })}/>`;
-    [pA, pB].forEach((p, i) => { h += orb ? `<circle${A({ cx: p[0], cy: p[1], r: 7, fill: `url(#${P}-e)` })}/>` : `<circle${A({ cx: p[0], cy: p[1], r: 4, fill: T(i ? '--b-glow' : '--a-glow') })}/>`; });
-    h += `<circle${A({ cx, cy: sy, r: 16, fill: `url(#${P}-g)` })}/><circle${A({ cx, cy: sy, r: 3.5, fill: T('--star-1') })}/>` + label(cx + 14, sy + 4, '프록시마 센타우리(1.3 pc)', { anchor: 'start', fill: T('--on-stage-1'), cls: 't12' });
-    const aA = Math.atan2(pA[1] - sy, pA[0] - cx), aB = Math.atan2(pB[1] - sy, pB[0] - cx);
-    h += `<path d="${smallArc(cx, sy, 34, aA, aB)}" fill="none" stroke="${T('--px-glow')}" stroke-width="3"/>`;
-    const v = this.arcsec(), vt = v >= .01 ? `${fx(v, 2)}″` : `${v.toPrecision(2)}″`;
-    h += label(cx, sy + 62, `시차 ${vt}`, { fill: T('--px-glow'), halo: T('--space-1'), cls: 't15 num' });
-    h += label(cx, by + (orb ? r * .18 + 22 : r + 22), orb ? '공전 궤도의 양 끝 — 약 3억 km 떨어짐' : '지구 표면의 양 끝 — 약 1만 3천 km 떨어짐', { fill: T('--on-stage-1'), cls: 't13' });
-    h += label(W - 8, 16, '거리 비율은 실제와 달라요', { anchor: 'end', fill: T('--on-stage-2'), cls: 't12' });
-    this.g.innerHTML = h; this.dirty = false;
-  }
-}
+/* ── 이론 카드 ‘초(″)와 파섹(pc)’ 그림 전용 장면(계산은 PX · STARS 그대로) ── */
 class AngleLab extends Scene {
   constructor(host, o = {}) {
     super(host, o); this.s = Object.assign({ zoom: 2, star: 'sirius' }, o.state || {});
@@ -1918,11 +1931,9 @@ class LabMini {
   make(host, o = {}) {
     const id = (o.print ? 'p' : 'm') + this.qid, st = o.print ? undefined : this.saved;
     switch (this.kind) {
-      case 'boardDist': return new BoardLab(host, { mini: true, id, arc: true, bothSight: true, dim: true, markable: false, onlySel: true, daName: '별 모형', state: st || { sel: 'da', da: { x: 135, y: 60 }, sight: true, eye: 'L' } });
+      case 'boardDist': return new BoardLab(host, { mini: true, id, arc: true, bothSight: true, dim: true, markable: false, onlySel: true, daName: '별 모형', noVal: !!o.print, state: st || { sel: 'da', da: { x: 135, y: 60 }, sight: true, eye: 'L' } });
       case 'orbitAB': return new OrbitLab(host, { mini: true, id, names: { X: 'B', Y: 'A' }, state: st || { m: 0, dX: 2.2, showY: true } });
       case 'gaiaMeasure': return new SkyLab(host, { mini: true, id, inset: true, alwaysBracket: true, state: st || { mode: 'gaia', photo: 'jan' } });
-      case 'baseline': return new BaselineLab(host, { mini: true, id, state: st || { base: 'orbit' } });
-      case 'units': return new AngleLab(host, { mini: true, id, state: st || { zoom: 2, star: 'sirius' } });
     }
   }
   build(stage) {
@@ -1944,8 +1955,6 @@ class LabMini {
       case 'orbitAB': { const near = m => Math.abs(((s.m - m + 18) % 12) - 6) < .05; return this.seg('pos', [['0', '(가) 1월 위치'], ['6', '(나) 7월 위치']], near(0) && !s.play && L.target == null ? '0' : near(6) && !s.play && L.target == null ? '6' : '', '지구 위치')
         + `<button class="btn small" data-mini="play" aria-pressed="${s.play}">${icon(s.play ? 'pause' : 'play')}<span>${s.play ? '멈춤' : '공전'}</span></button><button class="btn small ghost" data-mini="reset">${icon('reset')}<span>처음으로</span></button>`; }
       case 'gaiaMeasure': return this.seg('photo', [['jan', '(가) 1월'], ['jul', '(나) 7월'], ['blink', '번갈아 보기'], ['overlay', '겹쳐 보기']], s.photo, '사진 보기');
-      case 'baseline': return this.seg('base', [['earth', '지구의 양 끝'], ['orbit', '공전 궤도의 양 끝']], s.base, '두 관측 지점');
-      case 'units': return this.seg('zoom', [['0', '1° 돋보기'], ['1', '1′ 돋보기'], ['2', '1″ 돋보기']], s.zoom, '각도 돋보기') + this.seg('star', [['prox', '프록시마'], ['sirius', '시리우스'], ['vega', '베가']], s.star, '별');
     }
     return '';
   }
@@ -1954,8 +1963,17 @@ class LabMini {
     switch (this.kind) {
       case 'boardDist':
         if (a === 'eye') { L.setEye(v); return 'controls'; }
-        if (a === 'dist') { L.setDa(L.s.da.x, +v); L.draw(); return 'soft'; }
-        if (a === 'reset') { this.saved = null; L.s = { sel: 'da', da: { x: 135, y: 60 }, sight: true, eye: 'L', blink: false, marks: { L: null, R: null }, lines: false, prot: false }; L.dirty = true; return 'controls'; }
+        if (a === 'dist') {
+          // 거리 손잡이는 두 구멍 가운데에서 별 모형 쪽으로 난 방향을 그대로 두고 거리만 바꾼다(§9 간이 실험 6).
+          // 이 방향을 따라가면 시차는 멀어질수록 줄기만 한다. 판 가장자리에 닿으면 방향을 바꾸지 않고 그 자리에서 멈춘다.
+          const c = (BOARD.holes.L + BOARD.holes.R) / 2, d = L.s.da;
+          if (!this.ray || this.ray.x !== d.x || this.ray.y !== d.y) this.ray = { k: (d.x - c) / d.y };
+          const k = this.ray.k, lim = k > 0 ? (BOARD.daMax.x - c) / k : k < 0 ? (BOARD.daMin.x - c) / k : Infinity;
+          const y = Math.min(+v, lim);
+          L.setDa(c + k * y, y); this.ray.x = L.s.da.x; this.ray.y = L.s.da.y;
+          L.draw(); return 'soft';
+        }
+        if (a === 'reset') { this.saved = null; this.ray = null; L.s = { sel: 'da', da: { x: 135, y: 60 }, sight: true, eye: 'L', blink: false, marks: { L: null, R: null }, lines: false, prot: false }; L.dirty = true; return 'controls'; }
         break;
       case 'orbitAB':
         if (a === 'pos') { L.goMonth(+v); return 'controls'; }
@@ -1963,21 +1981,19 @@ class LabMini {
         if (a === 'reset') { L.s.play = false; L.target = null; L.s.m = 0; L.dirty = true; return 'controls'; }
         break;
       case 'gaiaMeasure': if (a === 'photo') { L.setPhoto(v); return 'controls'; } break;
-      case 'baseline': if (a === 'base') { L.s.base = v; L.dirty = true; return 'controls'; } break;
-      case 'units': if (a === 'zoom') { L.s.zoom = +v; } if (a === 'star') { L.s.star = v; } L.dirty = true; return 'controls';
     }
     return null;
   }
-  tick(dt) { const L = this.L; if (!L) return; if (L.step(dt) || L.dirty || L.drag) L.draw(); }
+  tick(dt) { const L = this.L; if (!L) return; const moving = L.target != null; if (L.step(dt) || L.dirty || L.drag) L.draw(); if (moving && L.target == null) this.changed = true; }   // 1월↔7월 이동이 끝나면 위치 버튼 눌림 상태를 맞춘다
   result() {
     const L = this.L, s = L.s;
     switch (this.kind) {
       case 'boardDist': { const m = L.model(); return `별 모형까지 ${m.y} mm · 왼쪽 구멍으로 보면 ${scaleReading(L.apparent('L'))}, 오른쪽 구멍으로 보면 ${scaleReading(L.apparent('R'))} · 시차 ${L.reading()}°`; }
       case 'orbitAB': {
-        if (s.play || L.target != null) return `지구(가이아)가 공전하고 있어요 — 지금 ${L.monthName()} 위치예요.`;
+        if (s.play || L.target != null) return `지구와 가이아가 공전하고 있어요 — 지금 ${L.monthName()} 위치예요.`;
         const word = off => Math.abs(off) < .05 ? '가운데' : `가운데에서 ${off < 0 ? '왼쪽' : '오른쪽'}으로 ${Math.abs(off) < .6 ? '조금' : '많이'} 떨어진 곳`;
         const E = L.E(), b = L.appX(E, L.starX()), a = L.appX(E, L.starY());
-        return `지구(가이아) ${L.monthName()} 위치 · 먼 별들은 그대로이고, 별 B는 ${word(b)}, 별 A는 ${word(a)}에 보여요.`;
+        return `지구·가이아 ${L.monthName()} 위치 · 먼 별들은 그대로이고, 별 B는 ${word(b)}, 별 A는 ${word(a)}에 보여요.`;
       }
       case 'gaiaMeasure': {
         const ts = L.targets(), sh = L.shownPhoto();
@@ -1985,8 +2001,6 @@ class LabMini {
         if (s.photo === 'blink') return '번갈아 보는 중 — 먼 별들은 멈춰 있고 별 A와 별 B만 좌우로 움직여요.';
         return `${sh === 'jan' ? '(가) 1월' : '(나) 7월'} 사진 — 눈금(한 칸 0.1″)으로 별 A와 별 B의 자리를 확인해 보세요.`;
       }
-      case 'baseline': { const v = L.arcsec(); return `${s.base === 'orbit' ? '공전 궤도의 양 끝(약 3억 km)' : '지구 표면의 양 끝(약 1만 3천 km)'}에서 본 프록시마 센타우리의 시차: ${v >= .01 ? fx(v, 2) : v.toPrecision(2)}″`; }
-      case 'units': { const st = STAR_BY[s.star]; return `${st.name}의 연주 시차 ${fx(st.p, 3)}″ = ${(st.p / 60).toPrecision(2)}′ = ${(st.p / 3600).toPrecision(2)}°`; }
     }
     return '';
   }
@@ -2036,7 +2050,7 @@ const THEORY = [
     id: 'limit', title: '연주 시차로 잴 수 있는 거리', fig: 'limit',
     def: '별이 멀수록 연주 시차가 작아져, 지구에서 관측하면 약 100 pc보다 먼 별은 연주 시차를 재어 거리를 알기 어렵다.',
     pts: ['연주 시차가 잴 수 있는 한계(약 0.01″)에 가까워지면 오차가 커진다.', '북극성(약 130 pc)은 6개월 사이 약 0.015″밖에 옮겨 가지 않는다.', '우주 망원경은 공기의 흔들림이 없어 땅에서보다 훨씬 작은 연주 시차까지 잴 수 있다.'],
-    more: '2013년 발사된 가이아 우주 망원경은 10억 개가 넘는 별의 위치와 연주 시차를 재어 우리은하의 입체 지도를 만들고 있다.',
+    more: '2013년에 발사되어 2025년까지 관측한 가이아 우주 망원경은 10억 개가 넘는 별의 위치와 연주 시차를 재었고, 그 자료로 우리은하의 입체 지도를 만들고 있다.',
     link: '실험대 ‘거리 비교’ — 스피카와 북극성을 ‘겹쳐 보기’로 재어 보세요.',
   },
   {
@@ -2106,12 +2120,17 @@ const KEY = n => `ssv-${LAB_ID}-${n}`;
 const LEARN_KEYS = ['records', 'answers', 'revisions', 'locks', 'hints', 'seen'];
 const store = {
   get(n, d) { try { const v = sessionStorage.getItem(KEY(n)); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
-  set(n, v) { try { sessionStorage.setItem(KEY(n), JSON.stringify(v)); } catch (e) { } mirror(); },
+  set(n, v) {
+    try { sessionStorage.setItem(KEY(n), JSON.stringify(v)); } catch (e) { }
+    // 지난 기록을 불러올지 묻는 동안(keepPending)에는 사본을 덮어쓰지 않는다 — 새 학습 기록을 남기기 시작하면 이번 세션이 새 사본이 된다
+    if (student.keepPending && LEARN_KEYS.includes(n)) { student.keepPending = false; try { sessionStorage.setItem(KEY('student'), JSON.stringify(student)); } catch (e) { } }
+    mirror();
+  },
   del(n) { try { sessionStorage.removeItem(KEY(n)); } catch (e) { } },
 };
 let student = store.get('student', { sid: '', name: '', asked: false, keep: false });
 function mirror() {
-  if (!student.keep || !student.sid) return;
+  if (!student.keep || !student.sid || student.keepPending) return;
   clearTimeout(mirror.t);
   mirror.t = setTimeout(() => { try { const b = {}; LEARN_KEYS.forEach(k => { b[k] = store.get(k, null); }); localStorage.setItem(KEY('p-' + student.sid), JSON.stringify(b)); } catch (e) { } }, 300);
 }
@@ -2454,7 +2473,7 @@ function buildQuiz() {
           <textarea id="ans-${q.id}" rows="5" placeholder="관찰한 내용을 바탕으로 내 문장으로 설명해 보세요. (두세 문장이면 충분합니다)"></textarea>
           <div class="arow"><span class="cnt num" id="cnt-${q.id}">0자</span><span class="lockline" id="lk-${q.id}" hidden>🔒 처음 답안은 그대로 남겨 두었어요. 아래 다시 쓰기 칸에 새로 정리해 보세요.</span></div>
           <div class="abtns"><button class="btn small" data-hint="${q.id}" aria-expanded="false">💡 힌트 보기</button><button class="btn small" data-model="${q.id}">📖 모범 답안 보기</button></div>
-          <div class="hintp" id="hint-${q.id}" hidden><p>${q.hint}</p><small>힌트는 답안을 잠그지 않아요.</small></div>
+          <div class="hintp" id="hint-${q.id}" hidden><p>${q.hint}${q.theory ? ` <button class="linkbtn" data-theory="${q.theory}">${icon('book')}이론: ${THEORY.find(t => t.id === q.theory).title}</button>` : ''}</p><small>힌트는 답안을 잠그지 않아요.</small></div>
           <div class="modelp" id="model-${q.id}" hidden><h4>모범 답안 · 이렇게 쓰면 좋아요</h4><p>${q.model}</p></div>
           <div class="revp" id="revp-${q.id}" hidden><h4>✏️ 모범 답안을 보고 다시 쓰기</h4><p class="revnote">처음 쓴 답안은 그대로 남습니다. 모범 답안과 견주어 빠뜨린 내용을 채워 내 문장으로 다시 정리해 보세요.</p>
             <textarea id="rv-${q.id}" rows="4" placeholder="모범 답안에서 새로 알게 된 내용을 넣어 다시 써 보세요."></textarea><span class="cnt num" id="rcnt-${q.id}">0자</span></div>
@@ -2483,7 +2502,7 @@ function miniAct(qid, a, v, el) {
   const m = minis[qid]; if (!m) return;
   const fig = $('#card-' + qid + ' figure.mini'), r = m.act(a, v);
   if (r === 'controls') { fig.querySelector('.mini-ctl').innerHTML = m.controls(); const b = fig.querySelector(`[data-mini="${a}"][data-v="${v}"]`) || fig.querySelector(`[data-mini="${a}"]`); if (b) b.focus({ preventScroll: true }); }
-  else if (r === 'soft' && el) { const o = el.nextElementSibling; if (o && o.tagName === 'OUTPUT') o.textContent = `${v} mm`; }
+  else if (r === 'soft' && el) { const y = m.L.s.da ? m.L.s.da.y : v, o = el.nextElementSibling; if (+el.value !== y) el.value = y; if (o && o.tagName === 'OUTPUT') o.textContent = `${y} mm`; }   // 판 가장자리에서 멈추면 손잡이도 실제 거리로
   m.L.draw();
   setT(fig.querySelector('.mini-result'), m.result());
 }
@@ -2565,7 +2584,7 @@ function openHelp() {
     <p>정보는 서버로 전송되지 않아요. 기본적으로 현재 브라우저 세션에서만 사용하며, ‘이 기기에서 이어하기’를 선택한 경우에만 이 기기에 저장됩니다. 테마 설정만 이 기기에 남아요.</p>
     <div class="dialog-actions start"><button class="btn" id="swapStudent">${icon('reset')}<span>학생 바꾸기</span></button><button class="btn ghost" id="wipeAll">${icon('trash')}<span>모든 데이터 초기화</span></button></div>
     <h3>출처와 제작</h3>
-    <p>중학교 과학 2 교과서(2022 개정 교육과정) 여러 출판사의 ‘별까지의 거리 · 연주 시차’ 단원 — 탐구·해 보기·스스로 확인하기 내용을 바탕으로 새로 구성했어요. 성취기준 [9과15-01]. 가이아 활동의 원자료: 유럽 우주국(esa.int).</p>
+    <p>중학교 과학 2 교과서(2022 개정 교육과정)의 ‘별까지의 거리 · 연주 시차’ 단원 — 탐구·해 보기·스스로 확인하기 내용을 바탕으로 새로 구성했어요. 성취기준 [9과15-01]. 가이아 활동의 원자료: 유럽 우주국(esa.int).</p>
     <p class="brandblock">🧪 송쌤과학 (Song Ssaem Science)<br>ⓒ 2026 송세호 | 아주중학교<br>📺 YouTube: <a href="${CHANNELS.yt}" target="_blank" rel="noopener noreferrer" aria-label="송쌤과학 유튜브 채널 (새 창)">@songsamscience</a>  📷 Instagram: <a href="${CHANNELS.ig}" target="_blank" rel="noopener noreferrer" aria-label="송쌤과학 인스타그램 (새 창)">@songsamscience</a><br>⚠ 무단 복제·상업적 이용 금지</p>
     <p class="ver-line">버전 v${APP_VERSION} · ${APP_DATE}</p></div>`;
   openModal('도움말', body, { wide: true, onOpen: () => { $('#swapStudent').onclick = () => confirmWipe(true); $('#wipeAll').onclick = () => confirmWipe(false); } });
@@ -2575,10 +2594,11 @@ function learnSummary() {
   if (student.sid || student.name) items.push('학번·이름');
   const n = r.board.length + r.orbit.length + Object.keys(r.sky).length;
   if (n) items.push(`실험 기록 ${n}줄`);
-  if (Object.values(answers).some(v => v)) items.push('처음 쓴 답안');
-  if (Object.values(revisions).some(v => v)) items.push('다시 쓴 답안');
-  if (Object.keys(locks).length) items.push('모범 답안 잠금');
-  if (Object.keys(hints).length) items.push('힌트 기록');
+  // 지금 문항(QUESTIONS)의 기록만 센다 — 예전 판(5문항)에서 남은 q4·q5 기록은 화면에 없으므로 세지 않는다
+  if (QUESTIONS.some(q => answers[q.id])) items.push('처음 쓴 답안');
+  if (QUESTIONS.some(q => revisions[q.id])) items.push('다시 쓴 답안');
+  if (QUESTIONS.some(q => locks[q.id])) items.push('모범 답안 잠금');
+  if (QUESTIONS.some(q => hints[q.id])) items.push('힌트 기록');
   if (!items.length) items.push('지울 학습 기록이 아직 없어요');
   return items;
 }
@@ -2614,10 +2634,13 @@ function askStudent(purpose, cb) {
       const done = withName => {
         const sid = $('#sidIn').value.trim(), name = $('#nameIn').value.trim(), kp = $('#keepIn').checked;
         if (withName && need && (!sid || !name)) { $('#sidMsg').textContent = '리포트에는 학번과 이름이 모두 필요해요.'; return; }
-        const hadP = kp && sid && (() => { try { return localStorage.getItem(KEY('p-' + sid)); } catch (e) { return null; } })();
-        student = { sid: withName ? sid : '', name: withName ? name : '', asked: true, keep: kp && withName && !!sid };
+        // 사본은 미러링이 덮어쓰기 전에 먼저 읽어 둔다
+        const kept = kp && withName && sid ? (() => { try { const b = JSON.parse(localStorage.getItem(KEY('p-' + sid)) || 'null'); return b && LEARN_KEYS.some(k => b[k] != null) ? b : null; } catch (e) { return null; } })() : null;
+        const offer = kept && !QUESTIONS.some(q => answers[q.id]);
+        clearTimeout(mirror.t);
+        student = { sid: withName ? sid : '', name: withName ? name : '', asked: true, keep: kp && withName && !!sid, keepPending: !!offer };
         store.set('student', student); closeModal();
-        if (hadP && !Object.values(answers).some(v => v)) toast('이 기기에 남긴 지난 기록이 있어요.', { action: '지난 기록 이어하기', onAction: () => restoreKept(sid) });
+        if (offer) toast('이 기기에 남긴 지난 기록이 있어요.', { action: '지난 기록 이어하기', onAction: () => restoreKept(sid, kept) });
         cb();
       };
       $('#sidOk').onclick = () => done(true);
@@ -2627,10 +2650,11 @@ function askStudent(purpose, cb) {
     },
   });
 }
-function restoreKept(sid) {
+function restoreKept(sid, kept) {
   try {
-    const b = JSON.parse(localStorage.getItem(KEY('p-' + sid)) || '{}');
+    const b = kept || JSON.parse(localStorage.getItem(KEY('p-' + sid)) || '{}');
     LEARN_KEYS.forEach(k => { if (b[k] != null) sessionStorage.setItem(KEY(k), JSON.stringify(b[k])); });
+    if (student.keepPending) { student.keepPending = false; store.set('student', student); }
     records = Object.assign(emptyRecords(), store.get('records', {}));
     answers = store.get('answers', {}); revisions = store.get('revisions', {}); locks = store.get('locks', {}); hints = store.get('hints', {}); seen = store.get('seen', {});
     go(S.screen); toast('지난 기록을 불러왔어요.');
@@ -2724,10 +2748,21 @@ function openReport() {
     <fieldset class="opts"><legend>빈 학습지 — 수업 전에 나눠 줄 때</legend><label class="check"><input type="checkbox" id="opTeacher"> 교사용(정답지 포함)</label></fieldset>
     <div class="dialog-actions"><button class="btn" id="wsPrint">${icon('clip')}<span>빈 학습지 인쇄</span></button></div>`, {
     onOpen: () => {
-      const ch = $('#rpChange'); if (ch) ch.onclick = () => { student.asked = false; closeModal(); askStudent('report', openReport); };
+      // ‘변경’은 이름만 고치기와 학생 바꾸기를 나눠 묻는다 — 다른 학생 이름으로 앞 학생의 답안이 인쇄되지 않게
+      const ch = $('#rpChange'); if (ch) ch.onclick = () => {
+        openModal('학번·이름 변경', `<p>지금 적힌 학번 <b>${esc(student.sid)}</b> · 이름 <b>${esc(student.name)}</b></p>
+          <p class="help">‘이름만 고치기’는 지금까지의 기록과 답안을 그대로 두고 학번·이름만 고쳐요. 다른 학생이 이 기기를 쓰려면 ‘학생 바꾸기’로 앞 학생의 기록을 지우고 처음부터 시작해요.</p>
+          <div class="dialog-actions"><button class="btn" data-close>취소</button><button class="btn" id="chFix">이름만 고치기</button><button class="btn primary" id="chSwap">학생 바꾸기</button></div>`, {
+          onOpen: () => {
+            $('#chFix').onclick = () => { student.asked = false; closeModal(); askStudent('report', openReport); };
+            $('#chSwap').onclick = () => { closeModal(); confirmWipe(true); };
+          },
+        });
+      };
       $('#rpPrint').onclick = () => {
         const o = { rec: !!($('#opRec') && $('#opRec').checked), ans: $('#opAns').checked && !$('#opAns').disabled, model: $('#opModel').checked };
-        closeModal(); askStudent('report', () => printDoc(() => reportHtml(o), `${LAB_FILE}_리포트_${student.sid}_${student.name}`));
+        // 저장 이름: 주제_학번_이름_YYYY-MM-DD(.pdf) — 날짜는 인쇄를 누른 순간의 기기 날짜, 머리글 날짜와 같은 값
+        closeModal(); askStudent('report', () => { o.day = todayStr(); printDoc(() => reportHtml(o), `${LAB_FILE}_${student.sid}_${student.name}_${o.day}`); });
       };
       $('#wsPrint').onclick = () => { const t = $('#opTeacher').checked; closeModal(); printDoc(() => worksheetHtml(t), `${LAB_FILE}_학습지${t ? '_교사용' : ''}`); };
     },
@@ -2746,14 +2781,14 @@ function recSections() {
 }
 function reportHtml(o) {
   let h = `<div class="pv"><header class="pv-head"><p class="pv-kick">송쌤과학 가상실험실 · 학습 리포트</p><h1>${LAB_TITLE}</h1>
-    <div class="pv-id"><span>학번 <b>${esc(student.sid)}</b></span><span>이름 <b>${esc(student.name)}</b></span><span>날짜 <b>${todayStr()}</b></span></div>
+    <div class="pv-id"><span>학번 <b>${esc(student.sid)}</b></span><span>이름 <b>${esc(student.name)}</b></span><span>날짜 <b>${o.day || todayStr()}</b></span></div>
     <p class="pv-policy">모범 답안을 열면 처음 답안 잠금 · 아래에 다시 쓰기</p></header>`;
   if (o.rec) h += recSections().h;
   if (o.ans) {
     h += `<section class="pv-sec">`;
     QUESTIONS.forEach((q, i) => {
       const a = (answers[q.id] || '').trim(), r = (revisions[q.id] || '').trim();
-      const tags = [locks[q.id] ? '모범 답안 열람함' : '열람 전 스스로 작성', hints[q.id] ? '힌트 봄' : '', r ? '모범 답안 보고 다시 씀' : ''].filter(Boolean).join(' · ');
+      const tags = [locks[q.id] ? '모범 답안 열람함' : a ? '열람 전 스스로 작성' : '아직 쓰지 않음', hints[q.id] ? '힌트 봄' : '', r ? '모범 답안 보고 다시 씀' : ''].filter(Boolean).join(' · ');
       h += `<article class="pv-q">${i ? '' : '<h2>탐구 질문</h2>'}<h3>${i + 1}. ${q.title}</h3><p class="pv-qq">${q.q}</p><div class="pv-fig">${miniPrintSvg(q)}</div><p class="pv-tags">${tags}</p>
         <div class="pv-ans ${r || o.model ? 'cols' : ''}"><div><h4>${r ? '처음 쓴 답안' : '내가 쓴 답안'}</h4><p>${a ? esc(a).replace(/\n/g, '<br>') : '<span class="pv-empty">쓰지 않음</span>'}</p></div>
         ${o.model ? `<div><h4>모범 답안</h4><p>${q.model}</p></div>` : ''}${r ? `<div><h4>모범 답안을 보고 다시 쓴 답안</h4><p>${esc(r).replace(/\n/g, '<br>')}</p></div>` : ''}</div></article>`;
@@ -2769,7 +2804,7 @@ function worksheetHtml(teacher) {
   h += `<section class="pv-sec"><h2>3. 탐구 질문</h2>`;
   QUESTIONS.forEach((q, i) => { h += `<article class="pv-q"><h3>${i + 1}. ${q.title}</h3><p class="pv-qq">${q.q}</p><div class="pv-fig">${miniPrintSvg(q)}</div><div class="lines">${'<i></i>'.repeat(5)}</div><h4 class="ws-rev">모범 답안을 보고 다시 쓴 답안</h4><div class="lines">${'<i></i>'.repeat(3)}</div></article>`; });
   h += `</section>`;
-  if (teacher) h += `<section class="pv-sec pv-key"><h2>정답지 (교사용)</h2><p>1. ${boardKey('ga')} / ${boardKey('na')} → 구멍에 가까운 (나)의 시차가 더 크다.</p><p>2. 별 A 0.24″ · 연주 시차 0.12″ / 별 B 0.60″ · 연주 시차 0.30″ → 연주 시차가 작은 별 A가 더 멀다.</p>${QUESTIONS.map((q, i) => `<p><b>${i + 1}. ${q.title}</b> ${q.model}</p>`).join('')}</section>`;
+  if (teacher) h += `<section class="pv-sec pv-key"><h2>정답지 (교사용)</h2><h3>기록표 정답</h3><p>1. ${boardKey('ga')} / ${boardKey('na')} → 구멍에 가까운 (나)의 시차가 더 크다.</p><p>2. 별 A 0.24″ · 연주 시차 0.12″ / 별 B 0.60″ · 연주 시차 0.30″ → 연주 시차가 작은 별 A가 더 멀다.</p><h3>탐구 질문 모범 답안</h3>${QUESTIONS.map((q, i) => `<p><b>${i + 1}. ${q.title}</b> ${q.model}</p>`).join('')}</section>`;
   return h + pvFoot() + '</div>';
 }
 function boardKey(id) {
@@ -2905,7 +2940,13 @@ function loop(ts) {
         m.tick(dt);
         if (m.changed || (m.rt = (m.rt || 0) + dt) > .25) {
           m.rt = 0;
-          if (m.changed) { m.changed = false; const fig = card.querySelector('figure.mini'), ctl = fig.querySelector('.mini-ctl'); if (!ctl.contains(document.activeElement)) ctl.innerHTML = m.controls(); }
+          if (m.changed) {
+            m.changed = false; const fig = card.querySelector('figure.mini'), ctl = fig.querySelector('.mini-ctl');
+            if (!ctl.contains(document.activeElement)) ctl.innerHTML = m.controls();
+            else { const fresh = document.createElement('div'); fresh.innerHTML = m.controls();       // 포커스가 조작 줄에 있으면 다시 그리지 않고 눌림 상태만 맞춘다
+              $$('[aria-pressed]', ctl).forEach(b => { const f = fresh.querySelector(b.dataset.v != null ? `[data-mini="${b.dataset.mini}"][data-v="${b.dataset.v}"]` : `[data-mini="${b.dataset.mini}"]`); if (f) b.setAttribute('aria-pressed', f.getAttribute('aria-pressed')); });
+              $$('input[type="range"][data-mini]', ctl).forEach(r => { const f = fresh.querySelector(`input[data-mini="${r.dataset.mini}"]`); if (!f) return; r.value = f.value; const o = r.nextElementSibling, fo = f.nextElementSibling; if (o && fo && o.tagName === 'OUTPUT') o.textContent = fo.textContent; }); }   // 끌기로 바뀐 거리를 손잡이·값에도
+          }
           setT(card.querySelector('.mini-result'), m.result());
         }
       }
@@ -2924,6 +2965,8 @@ function init() {
   $('#ver').textContent = `v${APP_VERSION}`;
   applyTheme(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
   syncFull(); bind(); go(S.screen);
+  // 지난 기록을 불러올지 고르기 전에 새로고침했으면 한 번 더 묻는다(그동안 사본은 그대로 둔다)
+  if (student.keepPending && student.sid) { try { const b = JSON.parse(localStorage.getItem(KEY('p-' + student.sid)) || 'null'); if (b) toast('이 기기에 남긴 지난 기록이 있어요.', { action: '지난 기록 이어하기', onAction: () => restoreKept(student.sid, b) }); } catch (e) { } }
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (cur.lab) cur.lab.draw(); });
   requestAnimationFrame(loop);
 }
