@@ -647,6 +647,8 @@ class Scene {
     svg.addEventListener('pointercancel', e => this._up(e));
     svg.addEventListener('lostpointercapture', e => this._up(e));
     svg.addEventListener('keydown', e => this._key(e));
+    // 손가락으로 손잡이를 끌 때 화면이 스크롤되며 끌기가 끊기지 않게(크롬은 SVG 안쪽 요소의 touch-action을 무시한다)
+    svg.addEventListener('touchstart', e => { if (e.target.closest && e.target.closest('[data-drag]')) e.preventDefault(); }, { passive: false });
   }
   resize() {
     const r = this.host.getBoundingClientRect();
@@ -2042,7 +2044,7 @@ const THEORY = [
   {
     id: 'units', title: '초(″)와 파섹(pc)', fig: 'units', unit: true,
     def: '태양을 제외한 별의 연주 시차는 매우 작아서 1°를 3600으로 나눈 ″(초)를 단위로 쓴다.',
-    pts: ['연주 시차가 1″인 별까지의 거리를 <b>1 pc(파섹)</b>이라고 한다. 1 pc은 약 3.26광년이다.', '1광년은 빛이 1년 동안 가는 거리다.', '가장 가까운 별인 프록시마 센타우리도 연주 시차가 약 0.77″밖에 되지 않는다.'],
+    pts: ['연주 시차가 1″인 별까지의 거리를 <b>1 pc(파섹)</b>이라고 한다. 1 pc은 약 3.26광년이다.', '1광년은 빛이 1년 동안 가는 거리다.', '태양 다음으로 가까운 별인 프록시마 센타우리도 연주 시차가 약 0.77″밖에 되지 않는다.'],
     more: '연주 시차가 1/2, 1/3로 작아지면 별까지의 거리는 2배, 3배로 멀어진다. 연주 시차가 0.5″인 별은 약 2 pc, 0.1″인 별은 약 10 pc 떨어져 있다.',
     link: '실험대 ‘거리 비교’ — 밝은 별들의 연주 시차와 거리를 막대로 견주어 보세요.',
   },
@@ -2324,7 +2326,7 @@ function chartFrame(o) {
   o.xt.forEach(v => { s += `<line x1="${X(v)}" x2="${X(v)}" y1="${t}" y2="${t + ph}" style="stroke:var(--line-1)"/><text x="${X(v)}" y="${H - 14}" text-anchor="middle" style="fill:var(--text-2);font-size:12px">${v}</text>`; });
   o.yt.forEach(v => { s += `<line x1="${l}" x2="${l + pw}" y1="${Y(v)}" y2="${Y(v)}" style="stroke:var(--line-1)"/><text x="${l - 6}" y="${Y(v) + 4}" text-anchor="end" style="fill:var(--text-2);font-size:12px">${v}</text>`; });
   s += `<line x1="${l}" x2="${l + pw}" y1="${t + ph}" y2="${t + ph}" style="stroke:var(--line-2)"/><line x1="${l}" x2="${l}" y1="${t}" y2="${t + ph}" style="stroke:var(--line-2)"/>`;
-  s += `<text x="${l + pw}" y="${H - 1}" text-anchor="end" style="fill:var(--text-2);font-size:12px;font-weight:600">${o.xl}</text><text x="4" y="${t + 4}" style="fill:var(--text-2);font-size:12px;font-weight:600" transform="rotate(-90 12 ${t + ph / 2}) translate(${-ph / 2 + 8} 0)">${o.yl}</text>`;
+  s += `<text x="${l + pw}" y="${H - 1}" text-anchor="end" style="fill:var(--text-2);font-size:12px;font-weight:600">${o.xl}</text><text x="${-(t + ph / 2)}" y="12" text-anchor="middle" style="fill:var(--text-2);font-size:12px;font-weight:600" transform="rotate(-90)">${o.yl}</text>`;
   return { s, X, Y };
 }
 function boardChart() {
@@ -2358,7 +2360,7 @@ function buildOrbit() {
       <button class="btn small" id="oRec" style="margin-top:8px">${icon('rec')}<span>이 값 기록하기</span></button></section>
     <section class="pg"><div class="pg-row"><h2 class="pg-title">거리와 연주 시차 기록</h2><button class="linkbtn" id="oClrRec">${icon('trash')}지우기</button></div><div id="oTable"></div></section>
     <section class="pg"><h2 class="pg-title">실제 거리로 보기</h2>
-      <p class="help">별 X를 가장 가까운 별(프록시마 센타우리)의 실제 거리로 옮기면 지구 공전 궤도와 시차가 어떻게 보이는지 확인해요.</p>
+      <p class="help">별 X를 태양 다음으로 가까운 별(프록시마 센타우리)의 실제 거리로 옮기면 지구 공전 궤도와 시차가 어떻게 보이는지 확인해요.</p>
       <button class="btn small" id="oReal" aria-pressed="false" style="margin-top:8px">${icon('zoom')}<span>실제 거리로 보기</span></button></section>`;
   $('#main').innerHTML = labShell('orbit', { tools, panel, space: true, ar: '3 / 4' });
   mountLab('orbit', (h, s) => new OrbitLab(h, { id: 'ob', state: Object.assign({ real: false }, s || {}, { real: false }) }));
@@ -2389,8 +2391,8 @@ function renderOrbitTable() {
   const t = $('#oTable'); if (!t) return;
   const r = records.orbit;
   if (!r.length) { t.innerHTML = `<p class="empty">별 X의 거리를 바꿔 가며 ‘이 값 기록하기’를 눌러 보세요. 거리가 멀어질 때 연주 시차가 어떻게 되는지 볼 수 있어요.</p>`; return; }
-  const f = chartFrame({ x0: 1.5, x1: 5.5, y0: 0, y1: 35, xt: [2, 3, 4, 5], yt: [0, 10, 20, 30], xl: '거리(태양–지구 거리의 배)', yl: '연주 시차(°)', aria: '별까지의 거리와 연주 시차 그래프(확대 모형)' });
-  let s = f.s; r.forEach(x => { s += `<circle cx="${f.X(x.d)}" cy="${f.Y(Math.min(35, x.ann))}" r="5" style="fill:var(--px)"/>`; });
+  const f = chartFrame({ x0: 1, x1: 5.5, y0: 0, y1: 40, xt: [1, 2, 3, 4, 5], yt: [0, 10, 20, 30, 40], xl: '거리(태양–지구 거리의 배)', yl: '연주 시차(°)', aria: '별까지의 거리와 연주 시차 그래프(확대 모형)' });
+  let s = f.s; r.forEach(x => { s += `<circle cx="${f.X(x.d)}" cy="${f.Y(Math.min(40, x.ann))}" r="5" style="fill:var(--px)"/>`; });
   t.innerHTML = `<table class="rec"><thead><tr><th class="num">거리</th><th class="num">시차</th><th class="num">연주 시차</th></tr></thead><tbody>${r.map(x => `<tr class="${freshRow === 'o' + x.d ? 'fresh' : ''}"><td class="num">${f1(x.d)}배</td><td class="num">${fmtAngle(x.par)}</td><td class="num"><b>${fmtAngle(x.ann)}</b></td></tr>`).join('')}</tbody></table>${s}</svg>`;
 }
 
@@ -2439,7 +2441,7 @@ function distTxt(r) { return r.pc >= 100 ? `약 ${Math.round(r.pc / 10) * 10} pc
 function renderSkyTable() {
   const t = $('#sTable'); if (!t) return;
   const rows = Object.values(records.sky).sort((a, b) => (b.p ?? -1) - (a.p ?? -1));
-  t.innerHTML = rows.length ? `<table class="rec"><thead><tr><th>별</th><th class="num">옮겨 간 각</th><th class="num">연주 시차</th><th class="num">거리</th></tr></thead><tbody>${rows.map(r => `<tr class="${freshRow === 's' + r.id ? 'fresh' : ''}"><td class="nm">${r.name.replace(/\(.*\)/, '')}${r.gaia ? ' <span class="muted">(가상)</span>' : ''}</td><td class="num">${r.shift == null ? '<span class="muted">너무 작음</span>' : fx(r.shift, 2) + '″'}</td><td class="num"><b>${r.p == null ? '—' : fx(r.p, 3) + '″'}</b></td><td class="num">${r.p == null ? `<span class="muted">${distTxt(r)}*</span>` : distTxt(r)}<br><span class="muted">${Math.round(r.ly)}광년</span></td></tr>`).join('')}</tbody></table>${rows.some(r => r.p == null) ? '<p class="help">* 연주 시차를 재기 어려운 별의 거리는 다른 방법(우주 망원경 등)으로 구한 값이에요.</p>' : ''}${rows.some(r => r.pTrue && r.p && Math.abs(r.p - r.pTrue) / r.pTrue > .15) ? '<p class="help">연주 시차가 아주 작은 별은 사진 눈금으로 잰 값의 오차가 커요.</p>' : ''}`
+  t.innerHTML = rows.length ? `<table class="rec"><thead><tr><th>별</th><th class="num">옮겨 간 각</th><th class="num">연주 시차</th><th class="num">거리</th></tr></thead><tbody>${rows.map(r => `<tr class="${freshRow === 's' + r.id ? 'fresh' : ''}"><td class="nm">${r.name.replace(/\(.*\)/, '')}${r.gaia ? ' <span class="muted">(가상)</span>' : ''}</td><td class="num">${r.shift == null ? '<span class="muted">너무 작음</span>' : fx(r.shift, 2) + '″'}</td><td class="num"><b>${r.p == null ? '—' : fx(r.p, 3) + '″'}</b></td><td class="num">${r.p == null ? `<span class="muted">${distTxt(r)}*</span>` : distTxt(r)}<br><span class="muted">${Math.round(r.ly)}광년</span></td></tr>`).join('')}</tbody></table>${rows.some(r => r.p == null) ? '<p class="help">* 연주 시차를 재기 어려운 별의 거리는 다른 방법(우주 망원경 등)으로 구한 값이에요.</p>' : ''}${rows.some(r => r.pTrue && r.p && Math.abs(r.p - r.pTrue) / r.pTrue > .1) ? '<p class="help">연주 시차가 아주 작은 별은 사진 눈금으로 잰 값의 오차가 커요.</p>' : ''}`
     : `<p class="empty">‘겹쳐 보기’로 옮겨 간 각을 확인하고 ‘재기’를 누르면 여기에 쌓여요.</p>`;
   $('#sChart').innerHTML = skyChart(rows);
 }
@@ -2567,7 +2569,7 @@ function openHelp() {
     <h3>이렇게 써요</h3>
     <ol><li><b>일상 속 시차</b> — ‘A 자리’·‘B 자리’를 누르거나 위에서 본 그림의 사람을 끌어 자리를 옮겨요. ‘번갈아 보기’를 누르면 A와 B 사이를 오가며 보여 줘요. 선생님(표지판)을 끌거나 거리 손잡이로 멀리·가까이 옮겨 보세요.</li>
     <li><b>시차 측정 판</b> — (가)·(나)를 고르고, 왼쪽·오른쪽 구멍으로 본 자리를 표시한 뒤 선을 긋고 각도기로 시차를 재어 기록해요. ‘(다) 옮기기’로 별 모형을 어디든 옮겨 볼 수 있어요.</li>
-    <li><b>연주 시차</b> — 지구를 끌거나 ‘공전’으로 돌려 보고, A(1월)·B(7월)에서 관측해 시차와 연주 시차를 확인해요. ‘실제 거리로 보기’는 가장 가까운 별의 실제 거리로 바꿔 보여 줘요.</li>
+    <li><b>연주 시차</b> — 지구를 끌거나 ‘공전’으로 돌려 보고, A(1월)·B(7월)에서 관측해 시차와 연주 시차를 확인해요. ‘실제 거리로 보기’는 태양 다음으로 가까운 별의 실제 거리로 바꿔 보여 줘요.</li>
     <li><b>거리 비교</b> — 1월·7월 사진을 번갈아 보거나 겹쳐 보고 ‘재기’로 연주 시차를 기록해요. 밝은 별 8개의 거리도 견주어 보세요.</li>
     <li><b>탐구 질문</b> — 간이 실험을 해 보고 내 문장으로 답해요. 모범 답안을 열면 처음 답안 잠금 · 아래에 다시 쓰기.</li></ol>
     <h3>단축키</h3>
@@ -2577,7 +2579,7 @@ function openHelp() {
     <h3>모형의 조건과 한계</h3>
     <ul><li>일상 속 시차: 교실은 두 자리 사이 3.2 m, 칠판까지 약 7 m, 캠핑장은 두 의자 사이 6 m, 텐트·캠핑카까지 30.5 m로 두고 바늘구멍 사진기처럼 원근을 계산했어요. 시차는 두 자리와 물체가 이루는 각이에요.</li>
     <li>시차 측정 판: 구멍 사이 80 mm, 구멍에서 번호 눈금까지 180 mm, 별 모형 (가) 128 mm · (나) 62 mm. 각도기는 1° 단위로 읽어요.</li>
-    <li>연주 시차 화면은 별을 태양–지구 거리의 1.4~4.4배에 둔 <b>확대 모형</b>이에요. 실제로 가장 가까운 별도 약 27만 배 떨어져 있어 시차가 1.54″(연주 시차 0.77″)밖에 되지 않아요 — ‘실제 거리로 보기’에서 확인할 수 있어요. 별은 지구 공전 궤도면 위에 있다고 두어 좌우로만 오가요.</li>
+    <li>연주 시차 화면은 별을 태양–지구 거리의 1.4~4.4배에 둔 <b>확대 모형</b>이에요. 실제로 태양 다음으로 가까운 별도 약 27만 배 떨어져 있어 시차가 1.54″(연주 시차 0.77″)밖에 되지 않아요 — ‘실제 거리로 보기’에서 확인할 수 있어요. 별은 지구 공전 궤도면 위에 있다고 두어 좌우로만 오가요.</li>
     <li>6개월 간격 사진: 사진의 가로는 2.4″, 눈금 한 칸은 0.1″예요. 1월과 7월 사이에 별이 옮겨 간 각(시차)을 0.01″ 단위로 읽고, 0.02″보다 작으면 재기 어렵다고 두었어요(지상 관측 정밀도 약 0.01″를 바탕으로 한 교육용 기준). 별 자체의 움직임(고유 운동)은 빼고 연주 시차만 나타냈어요. 별 A·B는 교과서 활동을 위한 가상의 별이에요.</li>
     <li>밝은 별의 연주 시차는 히파르코스·가이아 관측값이에요 — 프록시마 센타우리 0.768″, 시리우스 0.379″, 알타이르 0.195″, 베가 0.130″, 아크투루스 0.089″, 알데바란 0.049″, 스피카 0.013″, 북극성 0.0075″. 1 pc = 연주 시차 1″인 별까지의 거리 ≈ 3.26광년.</li></ul>
     <h3>기록과 개인정보</h3>
